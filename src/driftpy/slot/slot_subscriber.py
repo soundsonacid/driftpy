@@ -34,8 +34,9 @@ class SlotSubscriber(SlotSource):
 
         self.current_slot = await self.connection.get_slot()
 
-        endpoint = self.program.provider.connection._provider.endpoint_uri
-        ws_endpoint = endpoint.replace("https", "wss").replace("http", "ws")
+        # endpoint = self.program.provider.connection._provider.endpoint_uri
+        # ws_endpoint = endpoint.replace("https", "wss").replace("http", "ws")
+        ws_endpoint = "ws://localhost:8900/"
         while True:
             try:
                 async with connect(ws_endpoint) as ws:
