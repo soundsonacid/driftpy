@@ -33,6 +33,7 @@ class DriftUser:
         account_subscription: Optional[
             AccountSubscriptionConfig
         ] = AccountSubscriptionConfig.default(),
+        initial_user_data=None,
     ):
         """Initialize the user object
 
@@ -43,6 +44,7 @@ class DriftUser:
         """
         from driftpy.drift_client import DriftClient
 
+        self.initial_user_data = initial_user_data
         self.drift_client: DriftClient = drift_client
         self.program = drift_client.program
         self.oracle_program = drift_client
@@ -55,7 +57,7 @@ class DriftUser:
         )
 
     async def subscribe(self):
-        await self.account_subscriber.subscribe()
+        await self.account_subscriber.subscribe(initial_data=self.initial_user_data)
 
     def unsubscribe(self):
         self.account_subscriber.unsubscribe()

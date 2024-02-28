@@ -13,6 +13,7 @@ from solders.message import MessageV0
 from solders.rpc.responses import SendTransactionResp
 from solana.transaction import Transaction
 from solders.transaction import VersionedTransaction
+from solders.rpc.errors import InvalidParamsMessage
 
 
 class StandardTxSender(TxSender):
@@ -80,6 +81,12 @@ class StandardTxSender(TxSender):
 
         body = self.connection._send_raw_transaction_body(raw, self.opts)
         resp = await self.connection._provider.make_request(body, SendTransactionResp)
+
+        if isinstance(resp, InvalidParamsMessage):
+            print(tx.__dict__)
+            print(resp)
+            raise Exception(f"Invalid params: {resp}")
+
         sig = resp.value
 
         sig_status = await self.connection.confirm_transaction(

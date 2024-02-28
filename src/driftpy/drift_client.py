@@ -71,6 +71,7 @@ class DriftClient:
         active_sub_account_id: Optional[int] = None,
         sub_account_ids: Optional[list[int]] = None,
         market_lookup_table: Optional[Pubkey] = None,
+        initial_user_data=None,
     ):
         """Initializes the drift client object
 
@@ -79,6 +80,8 @@ class DriftClient:
             authority (Keypair, optional): Authority of all txs - if None will default to the Anchor Provider.Wallet Keypair.
         """
         self.connection = connection
+
+        self.initial_user_data = initial_user_data
 
         file = Path(str(driftpy.__path__[0]) + "/idl/drift.json")
         with file.open() as f:
@@ -151,6 +154,7 @@ class DriftClient:
             drift_client=self,
             user_public_key=self.get_user_account_public_key(sub_account_id),
             account_subscription=self.account_subscription_config,
+            initial_user_data=self.initial_user_data,
         )
         await user.subscribe()
         self.users[sub_account_id] = user

@@ -19,10 +19,12 @@ class CachedUserAccountSubscriber(UserAccountSubscriber):
         self.program = program
         self.commitment = commitment
         self.user_pubkey = user_pubkey
-        self.user_and_slot = None
 
-    async def subscribe(self):
-        await self.update_cache()
+    async def subscribe(self, initial_data: Optional[DataAndSlot[UserAccount]] = None):
+        if initial_data is None:
+            await self.update_cache()
+        else:
+            self.user_and_slot = initial_data
 
     async def update_cache(self):
         user_and_slot = await get_user_account_and_slot(self.program, self.user_pubkey)
