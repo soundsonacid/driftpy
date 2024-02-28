@@ -53,11 +53,13 @@ class DriftUser:
         self.user_public_key = user_public_key
 
         self.account_subscriber = account_subscription.get_user_client_subscriber(
-            self.program, self.user_public_key
+            self.program,
+            self.user_public_key,
+            self.initial_user_data,
         )
 
     async def subscribe(self):
-        await self.account_subscriber.subscribe(initial_data=self.initial_user_data)
+        await self.account_subscriber.subscribe()
 
     def unsubscribe(self):
         self.account_subscriber.unsubscribe()

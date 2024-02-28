@@ -19,6 +19,7 @@ class CachedUserAccountSubscriber(UserAccountSubscriber):
         self.program = program
         self.commitment = commitment
         self.user_pubkey = user_pubkey
+        self.user_and_slot: Optional[DataAndSlot[UserAccount]] = None
 
     async def subscribe(self, initial_data: Optional[DataAndSlot[UserAccount]] = None):
         if initial_data is None:

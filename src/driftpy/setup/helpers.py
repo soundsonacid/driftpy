@@ -135,6 +135,40 @@ async def _create_user_ata_tx(
     return fake_tx
 
 
+NATIVE_MINT = Pubkey.from_string("So11111111111111111111111111111111111111112")
+
+
+async def _create_wsol(
+    account: Keypair, provider: Provider, owner: Pubkey, mint=NATIVE_MINT
+) -> Transaction:
+    fake_tx = Transaction()
+
+    create_token_account_ix = create_account(
+        CreateAccountParams(
+            from_pubkey=provider.wallet.public_key,
+            to_pubkey=account.pubkey(),
+            lamports=await AsyncToken.get_min_balance_rent_for_exempt_for_account(
+                provider.connection
+            ),
+            space=ACCOUNT_LAYOUT.sizeof(),
+            owner=TOKEN_PROGRAM_ID,
+        )
+    )
+    fake_tx.add(create_token_account_ix)
+
+    init_token_account_ix = initialize_account(
+        InitializeAccountParams(
+            program_id=TOKEN_PROGRAM_ID,
+            account=account.pubkey(),
+            mint=mint,
+            owner=owner,
+        )
+    )
+    fake_tx.add(init_token_account_ix)
+
+    return fake_tx
+
+
 def mint_ix(
     usdc_mint: Pubkey,
     mint_auth: Pubkey,

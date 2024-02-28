@@ -20,9 +20,10 @@ from driftpy.accounts.ws import (
 )
 from driftpy.accounts.demo import (
     DemoDriftClientAccountSubscriber,
-    DemoUserAccountSubscriber
+    DemoUserAccountSubscriber,
 )
 from driftpy.types import OracleInfo
+
 
 class AccountSubscriptionConfig:
     @staticmethod
@@ -86,22 +87,27 @@ class AccountSubscriptionConfig:
                     self.commitment,
                 )
             case "cached":
-                return CachedDriftClientAccountSubscriber(
-                    program, 
-                    self.commitment
-                )
+                return CachedDriftClientAccountSubscriber(program, self.commitment)
             case "demo":
-                if perp_market_indexes == [] or spot_market_indexes == [] or oracle_infos == []:
-                    raise ValueError("spot_market_indexes / perp_market_indexes / oracle_infos all must be provided with demo config")
+                if (
+                    perp_market_indexes == []
+                    or spot_market_indexes == []
+                    or oracle_infos == []
+                ):
+                    raise ValueError(
+                        "spot_market_indexes / perp_market_indexes / oracle_infos all must be provided with demo config"
+                    )
                 return DemoDriftClientAccountSubscriber(
-                    program, 
+                    program,
                     perp_market_indexes,
                     spot_market_indexes,
                     oracle_infos,
-                    self.commitment
+                    self.commitment,
                 )
 
-    def get_user_client_subscriber(self, program: Program, user_pubkey: Pubkey):
+    def get_user_client_subscriber(
+        self, program: Program, user_pubkey: Pubkey, initial_user_data
+    ):
         match self.type:
             case "polling":
                 return PollingUserAccountSubscriber(
@@ -109,13 +115,14 @@ class AccountSubscriptionConfig:
                 )
             case "websocket":
                 return WebsocketUserAccountSubscriber(
-                    user_pubkey, program, self.commitment
+                    user_pubkey,
+                    program,
+                    self.commitment,
+                    initial_data=initial_user_data,
                 )
             case "cached":
                 return CachedUserAccountSubscriber(
                     user_pubkey, program, self.commitment
                 )
             case "demo":
-                return DemoUserAccountSubscriber(
-                    user_pubkey, program, self.commitment
-                )
+                return DemoUserAccountSubscriber(user_pubkey, program, self.commitment)
