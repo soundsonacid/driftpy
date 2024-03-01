@@ -1420,8 +1420,8 @@ class DriftClient:
         return self.program.instruction["liquidate_spot"](
             asset_market_index,
             liability_market_index,
-            max_liability_transfer,
-            limit_price,
+            int(max_liability_transfer),
+            int(limit_price),
             ctx=Context(
                 accounts={
                     "state": self.get_state_public_key(),
@@ -1444,12 +1444,13 @@ class DriftClient:
         user_sub_account_id: int = 0,
         liq_sub_account_id: int = None,
     ):
+        print(f"max baa: {max_base_asset_amount}")
         tx_sig_and_slot = await self.send_ixs(
             [
                 await self.get_liquidate_perp_ix(
                     user_authority,
                     market_index,
-                    max_base_asset_amount,
+                    int(max_base_asset_amount),
                     limit_price,
                     user_sub_account_id,
                     liq_sub_account_id,
@@ -1490,7 +1491,7 @@ class DriftClient:
 
         return self.program.instruction["liquidate_perp"](
             market_index,
-            max_base_asset_amount,
+            int(max_base_asset_amount),
             limit_price,
             ctx=Context(
                 accounts={

@@ -557,3 +557,13 @@ class Admin(DriftClient):
             liquidation_duration,
             ctx=Context(accounts={"admin": self.authority, "state": state_public_key}),
         )
+
+    async def update_oracle_guard_rails(
+        self, oracle_guard_rails: OracleGuardRails
+    ) -> Signature:
+        state_public_key = get_state_public_key(self.program.program_id)
+
+        return await self.program.rpc["update_oracle_guard_rails"](
+            oracle_guard_rails,
+            ctx=Context(accounts={"admin": self.authority, "state": state_public_key}),
+        )
