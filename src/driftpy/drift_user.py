@@ -193,7 +193,9 @@ class DriftUser:
         return (user_account.status & UserStatus.BANKRUPT) > 0
 
     def can_be_liquidated(self) -> Tuple[bool, int, int]:
-        total_collateral = self.get_total_collateral()
+        total_collateral = self.get_total_collateral(
+            margin_category=MarginCategory.MAINTENANCE
+        )
 
         liquidation_buffer = None
         if self.is_being_liquidated():
