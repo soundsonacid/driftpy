@@ -195,7 +195,6 @@ class DriftUser:
     def can_be_liquidated(self) -> Tuple[bool, int, int]:
         total_collateral = self.get_total_collateral()
 
-        user = self.get_user_account()
         liquidation_buffer = None
         if self.is_being_liquidated():
             liquidation_buffer = (
@@ -546,7 +545,7 @@ class DriftUser:
         include_open_orders: bool = True,
         strict: bool = False,
         now: Optional[int] = None,
-    ) -> (int, int):
+    ) -> Tuple[int, int]:
         now = now or int(time.time())
         net_quote_value = 0
         total_asset_value = 0
@@ -625,7 +624,7 @@ class DriftUser:
                             spot_market_account,
                             spot_position.balance_type,
                         ),
-                        "Borrow",
+                        SpotBalanceType.Borrow(),
                     )
                     liability_value = abs(
                         self.get_spot_liability_value(
