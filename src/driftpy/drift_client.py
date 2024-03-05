@@ -278,6 +278,7 @@ class DriftClient:
             ixs.insert(1, set_compute_unit_price(self.tx_params.compute_units_price))
 
         if tx_version == Legacy:
+            print("legacy")
             tx = await self.tx_sender.get_legacy_tx(ixs, self.wallet.payer, signers)
         elif tx_version == 0:
             if lookup_tables is None:
@@ -382,7 +383,6 @@ class DriftClient:
         spot_market_account_map: dict[int, AccountMeta],
     ) -> None:
         spot_market_account = self.get_spot_market_account(market_index)
-
         spot_market_account_map[market_index] = AccountMeta(
             pubkey=spot_market_account.pubkey, is_signer=False, is_writable=writable
         )
@@ -1417,6 +1417,8 @@ class DriftClient:
             user_accounts=[user_account, liq_user_account],
         )
 
+        assert self.wallet.payer.pubkey()
+
         return self.program.instruction["liquidate_spot"](
             asset_market_index,
             liability_market_index,
@@ -1618,6 +1620,7 @@ class DriftClient:
         liq_stats_pk = self.get_user_stats_public_key()
 
         user_account = await self.program.account["User"].fetch(user_pk)
+        print(str(user_pk))
         liq_user_account = self.get_user_account(liq_sub_account_id)
 
         remaining_accounts = self.get_remaining_accounts(
@@ -1701,16 +1704,18 @@ class DriftClient:
 
     async def resolve_spot_bankruptcy(
         self,
-        user_authority: Pubkey,
+        user_account_public_key: Pubkey,
+        user_account: UserAccount,
         spot_market_index: int,
         user_sub_account_id: int = 0,
-        liq_sub_account_id: int = None,
+        liq_sub_account_id: int = 0,
     ):
         return (
             await self.send_ixs(
                 [
                     await self.get_resolve_spot_bankruptcy_ix(
-                        user_authority,
+                        user_account_public_key,
+                        user_account,
                         spot_market_index,
                         user_sub_account_id,
                         liq_sub_account_id,
@@ -1721,38 +1726,26 @@ class DriftClient:
 
     async def get_resolve_spot_bankruptcy_ix(
         self,
-        user_authority: Pubkey,
+        user_account_public_key: Pubkey,
+        user_account: UserAccount,
         spot_market_index: int,
         user_sub_account_id: int = 0,
-        liq_sub_account_id: int = None,
+        liq_sub_account_id: int = 0,
     ):
-        user_pk = get_user_account_public_key(
-            self.program_id, user_authority, user_sub_account_id
-        )
-        user_stats_pk = get_user_stats_account_public_key(
-            self.program_id,
-            user_authority,
+        user_stats_public_key = get_user_stats_account_public_key(
+            self.program_id, user_account.authority
         )
 
-        liq_sub_account_id = self.get_sub_account_id_for_ix(liq_sub_account_id)
-        liq_pk = self.get_user_account_public_key(liq_sub_account_id)
-        liq_stats_pk = self.get_user_stats_public_key()
+        liquidator = self.get_user_account_public_key(liq_sub_account_id)
 
-        user_account = await self.program.account["User"].fetch(user_pk)
-        liq_user_account = self.get_user_account(liq_sub_account_id)
+        liquidator_stats_public_key = self.get_user_stats_public_key()
 
         remaining_accounts = self.get_remaining_accounts(
+            user_accounts=[self.get_user_account(user_sub_account_id), user_account],
             writable_spot_market_indexes=[spot_market_index],
-            user_accounts=[user_account, liq_user_account],
         )
 
-        if_vault = get_insurance_fund_vault_public_key(
-            self.program_id, spot_market_index
-        )
-        spot_vault = get_spot_market_vault_public_key(
-            self.program_id, spot_market_index
-        )
-        dc_signer = get_drift_client_signer_public_key(self.program_id)
+        spot_market = self.get_spot_market_account(spot_market_index)
 
         return self.program.instruction["resolve_spot_bankruptcy"](
             spot_market_index,
@@ -1760,13 +1753,13 @@ class DriftClient:
                 accounts={
                     "state": self.get_state_public_key(),
                     "authority": self.wallet.payer.pubkey(),
-                    "user": user_pk,
-                    "user_stats": user_stats_pk,
-                    "liquidator": liq_pk,
-                    "liquidator_stats": liq_stats_pk,
-                    "spot_market_vault": spot_vault,
-                    "insurance_fund_vault": if_vault,
-                    "drift_signer": dc_signer,
+                    "user": user_account_public_key,
+                    "user_stats": user_stats_public_key,
+                    "liquidator_stats": liquidator_stats_public_key,
+                    "liquidator": liquidator,
+                    "spot_market_vault": spot_market.vault,
+                    "insurance_fund_vault": spot_market.insurance_fund.vault,
+                    "drift_signer": get_drift_client_signer_public_key(self.program_id),
                     "token_program": TOKEN_PROGRAM_ID,
                 },
                 remaining_accounts=remaining_accounts,
@@ -1775,16 +1768,18 @@ class DriftClient:
 
     async def resolve_perp_bankruptcy(
         self,
-        user_authority: Pubkey,
+        user_account_public_key: Pubkey,
+        user_account: UserAccount,
         market_index: int,
         user_sub_account_id: int = 0,
-        liq_sub_account_id: int = None,
+        liq_sub_account_id: int = 0,
     ):
         return (
             await self.send_ixs(
                 [
                     await self.get_resolve_perp_bankruptcy_ix(
-                        user_authority,
+                        user_account_public_key,
+                        user_account,
                         market_index,
                         user_sub_account_id,
                         liq_sub_account_id,
@@ -1795,34 +1790,27 @@ class DriftClient:
 
     async def get_resolve_perp_bankruptcy_ix(
         self,
-        user_authority: Pubkey,
+        user_account_public_key: Pubkey,
+        user_account: UserAccount,
         market_index: int,
         user_sub_account_id: int = 0,
-        liq_sub_account_id: int = None,
+        liq_sub_account_id: int = 0,
     ):
-        user_pk = get_user_account_public_key(
-            self.program_id, user_authority, user_sub_account_id
-        )
-        user_stats_pk = get_user_stats_account_public_key(
-            self.program_id,
-            user_authority,
+        user_stats_public_key = get_user_stats_account_public_key(
+            self.program_id, user_account.authority
         )
 
-        liq_sub_account_id = self.get_sub_account_id_for_ix(liq_sub_account_id)
-        liq_pk = self.get_user_account_public_key(liq_sub_account_id)
-        liq_stats_pk = self.get_user_stats_public_key()
+        liquidator = self.get_user_account_public_key(liq_sub_account_id)
 
-        user_account = await self.program.account["User"].fetch(user_pk)
-        liq_user_account = self.get_user_account(liq_sub_account_id)
+        liquidator_stats_public_key = self.get_user_stats_public_key()
 
         remaining_accounts = self.get_remaining_accounts(
+            user_accounts=[self.get_user_account(user_sub_account_id), user_account],
             writable_perp_market_indexes=[market_index],
-            user_accounts=[user_account, liq_user_account],
+            writable_spot_market_indexes=[QUOTE_SPOT_MARKET_INDEX],
         )
 
-        if_vault = get_insurance_fund_vault_public_key(self.program_id, market_index)
-        spot_vault = get_spot_market_vault_public_key(self.program_id, market_index)
-        dc_signer = get_drift_client_signer_public_key(self.program_id)
+        spot_market = self.get_spot_market_account(QUOTE_SPOT_MARKET_INDEX)
 
         return self.program.instruction["resolve_perp_bankruptcy"](
             QUOTE_SPOT_MARKET_INDEX,
@@ -1831,13 +1819,13 @@ class DriftClient:
                 accounts={
                     "state": self.get_state_public_key(),
                     "authority": self.wallet.payer.pubkey(),
-                    "user": user_pk,
-                    "user_stats": user_stats_pk,
-                    "liquidator": liq_pk,
-                    "liquidator_stats": liq_stats_pk,
-                    "spot_market_vault": spot_vault,
-                    "insurance_fund_vault": if_vault,
-                    "drift_signer": dc_signer,
+                    "user": user_account_public_key,
+                    "user_stats": user_stats_public_key,
+                    "liquidator": liquidator,
+                    "liquidator_stats": liquidator_stats_public_key,
+                    "spot_market_vault": spot_market.vault,
+                    "insurance_fund_vault": spot_market.insurance_fund.vault,
+                    "drift_signer": get_drift_client_signer_public_key(self.program_id),
                     "token_program": TOKEN_PROGRAM_ID,
                 },
                 remaining_accounts=remaining_accounts,
