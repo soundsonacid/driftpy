@@ -1,4 +1,5 @@
 import json
+import os
 from deprecated import deprecated
 import requests
 from solders.pubkey import Pubkey
@@ -159,8 +160,8 @@ class DriftClient:
         await user.subscribe()
         self.users[sub_account_id] = user
 
-    def unsubscribe(self):
-        self.account_subscriber.unsubscribe()
+    async def unsubscribe(self):
+        await self.account_subscriber.unsubscribe()
 
     def get_user(self, sub_account_id=None) -> DriftUser:
         sub_account_id = (
@@ -225,14 +226,26 @@ class DriftClient:
     def get_oracle_price_data_for_perp_market(
         self, market_index: int
     ) -> Optional[OraclePriceData]:
-        oracle = self.get_perp_market_account(market_index).amm.oracle
-        return self.get_oracle_price_data(oracle)
+        data = self.account_subscriber.get_oracle_price_data_and_slot_for_perp_market(
+            market_index
+        )
+        return getattr(
+            data,
+            "data",
+            None,
+        )
 
     def get_oracle_price_data_for_spot_market(
         self, market_index: int
     ) -> Optional[OraclePriceData]:
-        oracle = self.get_spot_market_account(market_index).oracle
-        return self.get_oracle_price_data(oracle)
+        data = self.account_subscriber.get_oracle_price_data_and_slot_for_spot_market(
+            market_index
+        )
+        return getattr(
+            data,
+            "data",
+            None,
+        )
 
     def convert_to_spot_precision(self, amount: Union[int, float], market_index) -> int:
         spot_market = self.get_spot_market_account(market_index)
@@ -935,7 +948,7 @@ class DriftClient:
                 accounts={
                     "state": self.get_state_public_key(),
                     "user": self.get_user_account_public_key(sub_account_id),
-                    "authority": self.wallet.payer,
+                    "authority": self.wallet.payer.pubkey(),
                 },
                 remaining_accounts=remaining_accounts,
             ),
@@ -2556,7 +2569,7 @@ class DriftClient:
         user_account_public_key: Optional[Pubkey] = None,
     ) -> Tuple[list[Instruction], list[AddressLookupTableAccount]]:
         pre_instructions: list[Instruction] = []
-        JUPITER_URL = "https://quote-api.jup.ag/v6"
+        JUPITER_URL = os.getenv("JUPITER_URL", "https://quote-api.jup.ag/v6")
 
         out_market = self.get_spot_market_account(out_market_idx)
         in_market = self.get_spot_market_account(in_market_idx)
@@ -2709,3 +2722,49 @@ class DriftClient:
                 return (spot_market_account.market_index, MarketType.Spot())
 
         return None  # explicitly return None if no match is found
+
+    def get_update_user_margin_trading_enabled_ix(
+        self,
+        margin_trading_enabled: bool,
+        sub_account_id: Optional[int] = None,
+    ) -> Instruction:
+        sub_account_id = self.get_sub_account_id_for_ix(sub_account_id)
+
+        remaining_accounts = self.get_remaining_accounts(
+            user_accounts=[self.get_user_account(sub_account_id)],
+        )
+
+        return self.program.instruction["update_user_margin_trading_enabled"](
+            sub_account_id,
+            margin_trading_enabled,
+            ctx=Context(
+                accounts={
+                    "user": self.get_user_account_public_key(sub_account_id),
+                    "authority": self.wallet.payer.pubkey(),
+                },
+                remaining_accounts=remaining_accounts,
+            ),
+        )
+
+    async def update_user_margin_trading_enabled(
+        self, margin_trading_enabled: bool, sub_account_id: Optional[int] = None
+    ):
+        """Toggles margin trading for a user
+
+        Args:
+            sub_account_id (int, optional): subaccount id. Defaults to 0.
+
+        Returns:
+            str: tx sig
+        """
+        await self.add_user(sub_account_id)
+
+        tx_sig = await self.send_ixs(
+            [
+                self.get_update_user_margin_trading_enabled_ix(
+                    margin_trading_enabled=margin_trading_enabled,
+                    sub_account_id=sub_account_id,
+                )
+            ]
+        ).tx_sig
+        return tx_sig

@@ -2,6 +2,7 @@ import asyncio
 
 from solana.rpc.websocket_api import connect, SolanaWsClientProtocol
 from driftpy.dlob.client_types import SlotSource
+from driftpy.types import get_ws_url
 
 from driftpy.drift_client import DriftClient
 from events import Events as EventEmitter
